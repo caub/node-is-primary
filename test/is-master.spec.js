@@ -1,38 +1,36 @@
 'use strict';
 
-var chai = require("../node_modules/chai");
-var expect = chai.expect;
-var mongoose = require('../node_modules/mongoose');
-var mongooseMock = require('mongoose-mock');
-var proxyquire = require('proxyquire');
-var sinon = require('sinon');
-var sinonChai = require("sinon-chai");
+const test = require("assert");
+const mongoose = require('mongoose');
+const { MongoMemoryServer } = require('mongodb-memory-server');
+const sinon = require('sinon');
 
-chai.use(sinonChai);
+const im = require('../is-master');
 
-describe("is-master", function() {
+describe("is-master", function () {
 
-    var im;
+    let mongoServer;
 
-    beforeEach(function() {
-        im = proxyquire('../is-master.js', {
-            'mongoose': mongooseMock
-        });
+    beforeEach(async function () {
+        mongoServer = await MongoMemoryServer.create();
+        console.log('Using memory DB:', mongoServer.getUri());
+        await mongoose.connect(mongoServer.getUri());
     });
 
-    it("should start the worker", function(done) {
-        im.start({
+    afterEach(async () => {
+        await mongoose.disconnect();
+        await mongoServer.stop();
+    });
+
+    it("should start the worker", async function () {
+        await im.start({
             collection: 'testcol',
             hostname: 'testhost',
             timeout: 120
         });
-        done();
     });
-    it("should return if it is the master", function(done) {
-        im.isMaster(function(err, results) {
-            expect(err).to.be.null;
-            expect(results).to.be.a('boolean');
-            done();
-        });
+    it("should return if it is the master", async function () {
+        const results = await im.isMaster();
+        test(typeof result, 'boolean');
     });
 });

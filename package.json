@@ -31,12 +31,12 @@
   },
   "homepage": "https://github.com/mattpker/node-is-master",
   "devDependencies": {
-    "chai": "^1.10.0",
-    "mocha": "^2.1.0",
-    "mongoose": "^5.9.23",
+    "eslint": "^7.32.0",
+    "mocha": "^10.7.3",
+    "mongodb-memory-server": "^10.0.0",
+    "mongoose": "^8.5.4",
     "mongoose-mock": "^0.4.0",
     "proxyquire": "^1.6.0",
-    "sinon": "^1.15.4",
-    "sinon-chai": "^2.8.0"
+    "sinon": "^18.0.0"
   }
 }

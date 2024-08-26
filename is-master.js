@@ -37,7 +37,7 @@ im.prototype.start = function(options) {
         util._extend(this, options);
     }
     this.mongooseInit();
-    this.startWorker();
+    return this.startWorker();
 };
 
 /**
@@ -99,98 +99,93 @@ im.prototype.mongooseInit = function() {
 /**
  * Function saves the worker in the db and updates it
  */
-im.prototype.startWorker = function() {
-    var _this = this;
-    this.worker.save(function(err, worker) {
-        if (err) {
+im.prototype.startWorker = async function() {
+    return this.worker.save()
+        .then(worker => {
+            this.id = worker._id;
+            return this.isMaster();
+        })
+        .then(results => {
+            this.master = results;
+            this.emit('connected');
+            if (this.master) {
+                this.emit('master');
+            } else {
+                this.emit('slave');
+                this.emit('secondary');
+            }
+            this.process();
+         })
+        .catch(err => {
             if (err.code === 11000) {
-                _this.worker.startDate = new Date();
-                _this.worker.updateDate = new Date();
-                return _this.startWorker();
+                this.worker.startDate = new Date();
+                this.worker.updateDate = new Date();
+                return this.startWorker();
             } else {
                 throw err;
             }
-        }
-        _this.id = worker._id;
-        _this.isMaster(function(err, results) {
-            if (err) return console.error(err);
-            _this.master = results;
-            _this.emit('connected');
-            if (_this.master) {
-                _this.emit('master');
-            } else {
-                _this.emit('slave');
-                _this.emit('secondary');
-            }
-            _this.process();
         });
-    });
 };
 
 /**
  * Function that runs the worker that checks in whith the DB
  */
 im.prototype.process = function() {
-    var _this = this;
     // Update this node in the cluster every x timeout
-    setInterval(function() {
-        _this.imModel.updateOne({
-            _id: _this.id
+    setInterval(() => {
+        this.imModel.updateOne({
+            _id: this.id
         }, {
-            hostname: _this.hostname,
-            pid: _this.pid,
-            versions: _this.versions,
+            hostname: this.hostname,
+            pid: this.pid,
+            versions: this.versions,
             memory: process.memoryUsage(),
             uptime: process.uptime(),
             updateDate: new Date()
         }, {
             upsert: true, // handle event where document was deleted
             setDefaultsOnInsert: true, // on insert, make sure to set default values
-        }, function(err, results) {
-            if (err) return console.error(err);
-            _this.emit('synced');
-            _this.isMaster(function (err, results) {
-                if (err) return console.error(err);
-                if (results !== _this.master) {
-                    _this.master = results;
-                    _this.emit('changed');
-                    if (_this.master) {
-                        _this.emit('master');
+        })
+            .then(() => {
+                this.emit('synced');
+                return this.isMaster();
+            })
+            .then(results => {
+                if (results !== this.master) {
+                    this.master = results;
+                    this.emit('changed');
+                    if (this.master) {
+                        this.emit('master');
                     } else {
-                        _this.emit('slave');
-                        _this.emit('secondary');
+                        this.emit('slave');
+                        this.emit('secondary');
                     }
                 }
+            })
+            .catch(err => {
+                console.error(err);
             });
-        });
-    }, _this.timeout * 1000);
+    }, this.timeout * 1000);
 };
 
 /**
- * Function returns true/false if the node proc is the master (the oldest node in the cluster)
+ * Function resolves with true/false if the node proc is the master (the oldest node in the cluster)
  */
-im.prototype.isMaster = function(callback) {
-    var _this = this;
+im.prototype.isMaster = function() {
     if (this.id) {
-        this.imModel.findOne({}, {
+        return this.imModel.findOne({}, {
             id: 1
         }, {
             sort: {
                 startDate: 1
             }
-        }, function(err, results) {
-            if (err) return callback(err);
-
-            if(!results){
-              return callback(err, false);
-            } else if (results._id.toString() === _this.id.toString()) {
-                callback(err, true);
-            } else {
-                callback(err, false);
-            }
-        });
+        })
+            .then(results => {
+                if (!results) return false;
+                return results._id.toString() === this.id.toString();
+            });
     } else {
-        callback(null, false);
+        return false;
     }
 };
 
