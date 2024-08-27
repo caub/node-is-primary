@@ -28,6 +28,7 @@ describe("is-master", function () {
             hostname: 'testhost',
             timeout: 120
         });
+        im.stop();
     });
     it("should return if it is the master", async function () {
         const results = await im.isMaster();

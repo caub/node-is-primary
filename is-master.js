@@ -6,6 +6,8 @@ var mongoose = require('mongoose'),
     EventEmitter = require("events").EventEmitter,
     os = require('os');
 
+var itv;
+
 function im() {
     EventEmitter.call(this);
 }
@@ -38,6 +40,10 @@ im.prototype.start = function(options) {
     }
     this.mongooseInit();
     return this.startWorker();
+};
+
+im.prototype.stop = function () {
+    clearInterval(itv);
 };
 
 /**
@@ -132,7 +138,7 @@ im.prototype.startWorker = async function() {
  */
 im.prototype.process = function() {
     // Update this node in the cluster every x timeout
-    setInterval(() => {
+    itv = setInterval(() => {
         this.imModel.updateOne({
             _id: this.id
         }, {
