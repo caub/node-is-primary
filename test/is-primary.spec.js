@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const sinon = require('sinon');
 
-const im = require('../is-master');
+const im = require('../is-primary');
 
 describe("is-master", function () {
 
