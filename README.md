@@ -32,8 +32,7 @@ node.start();
 
 // Check if this current process is the primary using the callback method
 setInterval(function() {
-    node.isPrimary(function(err, results) {
-        if (err) return console.error(err);
+    node.isPrimary().then(results => {
         console.log('Callback primary: ', results);
     });
 }, 5000);
