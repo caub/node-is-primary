@@ -1,66 +1,66 @@
-is-master
+is-primary
 =========
-Find the master node process in a multi server cluster.
+Find the primary node process in a multi server cluster.
 
-This module finds the master node in a cluster by inserting the nodes in a mongodb and choosing the master by which node is the oldest. Each node checks into mongodb on a set timeout (default 1 minute). If the master node dies for whatever reason, mongodb will expire the record and the next node in line will become the master. Mongoose and a connection to a mongodb database is REQUIRED for is-master to work.
+This module finds the primary node in a cluster by inserting the nodes in a mongodb and choosing the primary by which node is the oldest. Each node checks into mongodb on a set timeout (default 1 minute). If the primary node dies for whatever reason, mongodb will expire the record and the next node in line will become the primary. Mongoose and a connection to a mongodb database is REQUIRED for is-primary to work.
 
 Use cases for this module:
-* If you run your node cluster with a cluster manager like PM2 or even if you run your clusters on multiple servers (they just need to all report into the same mongodb), you can find which node process is the master.
-* This will allow you to assign one node process as the master so that it can run tasks that should only be ran by one process, such as scheduled tasks and database cleanup.
+* If you run your node cluster with a cluster manager like PM2 or even if you run your clusters on multiple servers (they just need to all report into the same mongodb), you can find which node process is the primary.
+* This will allow you to assign one node process as the primary so that it can run tasks that should only be ran by one process, such as scheduled tasks and database cleanup.
 
 ## Installation
 
-    npm install is-master
+    npm install is-primary
 
 ## Usage / Examples
 ```
 'use strict';
 
-var mongoose = require('../node_modules/mongoose');
-var im = require('../is-master.js');
+var mongoose = require('mongoose');
+var node = require('is-primary');
 
 // Start the mongoose db connection
-mongoose.connect('mongodb://127.0.0.1:27017/im', function(err) {
+mongoose.connect('mongodb://127.0.0.1:27017/test', function(err) {
     if (err) {
         console.error('\x1b[31m', 'Could not connect to MongoDB!');
         throw (err);
     }
 });
 
-// Start the is-master worker
-im.start();
+// Start the is-primary worker
+node.start();
 
-// Check if this current process is the master using the callback method
+// Check if this current process is the primary using the callback method
 setInterval(function() {
-    im.isMaster(function(err, results) {
+    node.isPrimary(function(err, results) {
         if (err) return console.error(err);
-        console.log('Callback master: ', results);
+        console.log('Callback primary: ', results);
     });
 }, 5000);
 
-// Check if this current process is the master using the im.master method, this method only updates every time the process checks in
+// Check if this current process is the primary using the node.isPrimary method, this method only updates every time the process checks in
 setInterval(function() {
-        console.log('Variable master: ', im.master);
+        console.log('Variable primary: ', node.primary);
 }, 5000);
 
 // Event emmiters that you can listen for
-im.on('connected', function() {
-    console.log('The is-master worker has connected and insterted into mongodb.');
+node.on('connected', function() {
+    console.log('The is-primary worker has connected and insterted into mongodb.');
 });
 
-im.on('synced', function() {
-    console.log('The is-master worker has synced to mongodb.');
+node.on('synced', function() {
+    console.log('The is-primary worker has synced to mongodb.');
 });
 
-im.on('changed', function() {
-    console.log('The master variable has changed');
+node.on('changed', function() {
+    console.log('The primary variable has changed');
 });
 
-im.on('master', function() {
-    console.log('The process has been promoted to master');
+node.on('primary', function() {
+    console.log('The process has been promoted to primary');
 });
 
-im.on('secondary', function(){
+node.on('secondary', function(){
     console.log('The process has been demoted to secondary');
 });
 ```
@@ -69,23 +69,23 @@ im.on('secondary', function(){
 
 When starting the worker, you can specify options in an object to update the default values.
 
-    im.start({
+    node.start({
         timeout: 120, // How often the nodes check into the database. This value is in seconds, default 60.
         hostname: 'devServer1', // Sets the hostname of the node, without this value it will get the hostname using os.hostname.
-        collection: 'proc' // The mongodb collection is-master will use. Please note that by default mongoose adds an 's' to the end to make it plural. Default value is 'node'.
+        collection: 'proc' // The mongodb collection is-primary will use. Please note that by default mongoose adds an 's' to the end to make it plural. Default value is 'node'.
     });
 
 ## FAQ
 
 Q. I updated the timeout option, but mongodb is not expiring the node in that timeout specified.
 
-A. 60 seconds is added to the mongodb expire timeout to ensure the master has time to checkin. Also please note, if this value is changed from the initial creation of the table, it will not be able to update the index. You will need to delete the table and then restart your server to re-create it.
+A. 60 seconds is added to the mongodb expire timeout to ensure the primary has time to checkin. Also please note, if this value is changed from the initial creation of the table, it will not be able to update the index. You will need to delete the table and then restart your server to re-create it.
 
 
 ## Compatibility
 
-For backward compatibility, the `secondary` event is also emitted with the historical name `slave`.
-This maybe removed in a future release.
+For backward compatibility, the `secondary` event was also emitted with the historical name `slave`.
+This is now removed
 
 ## More info
 

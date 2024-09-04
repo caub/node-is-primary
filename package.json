@@ -12,10 +12,12 @@
   },
   "keywords": [
     "cluster",
-    "master",
+    "primary",
+    "leader",
     "multi",
     "server",
-    "isMaster",
+    "isPrimary",
+    "isLeader",
     "isSecondary",
     "heartbeat"
   ],
@@ -23,7 +25,7 @@
   "licenses": [
     {
       "type": "MIT",
-      "url": "https://github.com/caub/node-is-primary/blob/master/LICENSE"
+      "url": "https://github.com/caub/node-is-primary/blob/dev/LICENSE"
     }
   ],
   "bugs": {
@@ -34,9 +36,6 @@
     "eslint": "^7.32.0",
     "mocha": "^10.7.3",
     "mongodb-memory-server": "^10.0.0",
-    "mongoose": "^8.5.4",
-    "mongoose-mock": "^0.4.0",
-    "proxyquire": "^1.6.0",
-    "sinon": "^18.0.0"
+    "mongoose": "^8.5.4"
   }
 }

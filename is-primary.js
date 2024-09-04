@@ -1,201 +1,193 @@
-'use strict';
+const mongoose = require('mongoose');
+const { EventEmitter } = require('events');
+const os = require('os');
 
-var mongoose = require('mongoose'),
-    Schema = mongoose.Schema,
-    util = require('util'),
-    EventEmitter = require("events").EventEmitter,
-    os = require('os');
 
-var itv;
-
-function im() {
-    EventEmitter.call(this);
-}
-
-// Inherit the EventEmitter into our im prototype
-util.inherits(im, EventEmitter);
-
-/**
- * Sets the default variables
- */
-im.prototype.master = false;
-im.prototype.collection = 'node';
-im.prototype.hostname = os.hostname();
-im.prototype.pid = process.pid;
-im.prototype.versions = process.versions;
-im.prototype.id = null;
-im.prototype.timeout = 60;
-
-/**
- * Function initializes options, does some basic option verification and starts is-master
- */
-im.prototype.start = function(options) {
-    if (options) {
-        if (options.timeout) {
-            options.timeout = parseInt(options.timeout, 10);
-            if (isNaN(options.timeout)) throw 'im: timeout is not a number!';
-        }
-
-        util._extend(this, options);
-    }
-    this.mongooseInit();
-    return this.startWorker();
-};
-
-im.prototype.stop = function () {
-    clearInterval(itv);
-};
-
-/**
- * Function initializes the mongoose table, schema, and model
- */
-im.prototype.mongooseInit = function() {
-    var imSchema = new Schema({
-        hostname: {
-            type: String,
-            trim: true,
-            default: '',
-        },
-        pid: {
-            type: Number,
-        },
-        versions: {
-            type: Object,
-        },
-        memory: {
-            type: Object,
-        },
-        uptime: {
-            type: Number,
-        },
-        startDate: {
-            type: Date,
-            default: Date.now,
-            index: {
-                unique: true
-            }
-        },
-        updateDate: {
-            type: Date,
-            default: Date.now,
-            index: {
-                expires: this.timeout + 60
-            }
-        }
-    });
-
-    // ensure we aren't attempting to redefine a collection that already exists
-    if (mongoose.models.hasOwnProperty(this.collection)) {
-        this.imModel = mongoose.model(this.collection);
-    } else{
-        this.imModel = mongoose.model(this.collection, imSchema);
+class Node extends EventEmitter {
+    constructor() {
+        super();
+        this.itv = null; // interval instance
+        /**
+         * Sets the default variables
+         */
+        this.primary = false;
+        this.collection = 'node';
+        this.hostname = os.hostname();
+        this.pid = process.pid;
+        this.versions = process.versions;
+        this.id = null;
+        this.timeout = 60;
     }
 
-    this.worker = new this.imModel({
-        hostname: this.hostname,
-        pid: this.pid,
-        versions: this.versions,
-        memory: process.memoryUsage(),
-        uptime: process.uptime(),
-        startDate: new Date(),
-        updateDate: new Date()
-    });
-};
-
-/**
- * Function saves the worker in the db and updates it
- */
-im.prototype.startWorker = async function() {
-    return this.worker.save()
-        .then(worker => {
-            this.id = worker._id;
-            return this.isMaster();
-        })
-        .then(results => {
-            this.master = results;
-            this.emit('connected');
-            if (this.master) {
-                this.emit('master');
-            } else {
-                this.emit('slave');
-                this.emit('secondary');
+    /**
+     * Function initializes options, does some basic option verification and starts is-primary
+     */
+    start(options) {
+        if (options) {
+            if (options.timeout) {
+                options.timeout = parseInt(options.timeout, 10);
+                if (isNaN(options.timeout)) throw new Error('timeout is not a number!');
             }
-            this.process();
-         })
-        .catch(err => {
-            if (err.code === 11000) {
-                this.worker.startDate = new Date();
-                this.worker.updateDate = new Date();
-                return this.startWorker();
-            } else {
-                throw err;
+
+            Object.assign(this, options);
+        }
+        this.mongooseInit();
+        return this.startWorker();
+    }
+
+    stop() {
+        clearInterval(this.itv);
+    }
+
+    /**
+     * Function initializes the mongoose table, schema, and model
+     */
+    mongooseInit() {
+        const schema = new mongoose.Schema({
+            hostname: {
+                type: String,
+                trim: true,
+                default: '',
+            },
+            pid: {
+                type: Number,
+            },
+            versions: {
+                type: Object,
+            },
+            memory: {
+                type: Object,
+            },
+            uptime: {
+                type: Number,
+            },
+            startDate: {
+                type: Date,
+                default: Date.now,
+                index: {
+                    unique: true
+                }
+            },
+            updateDate: {
+                type: Date,
+                default: Date.now,
+                index: {
+                    expires: this.timeout + 60
+                }
             }
         });
-};
 
-/**
- * Function that runs the worker that checks in whith the DB
- */
-im.prototype.process = function() {
-    // Update this node in the cluster every x timeout
-    itv = setInterval(() => {
-        this.imModel.updateOne({
-            _id: this.id
-        }, {
+        // ensure we aren't attempting to redefine a collection that already exists
+        if (mongoose.models[this.collection]) {
+            throw new Error('Model already loaded');
+        }
+
+        this.model = mongoose.model(this.collection, schema);
+
+        this.worker = new this.model({
             hostname: this.hostname,
             pid: this.pid,
             versions: this.versions,
             memory: process.memoryUsage(),
             uptime: process.uptime(),
+            startDate: new Date(),
             updateDate: new Date()
-        }, {
-            upsert: true, // handle event where document was deleted
-            setDefaultsOnInsert: true, // on insert, make sure to set default values
-        })
-            .then(() => {
-                this.emit('synced');
-                return this.isMaster();
+        });
+    }
+
+    /**
+     * Function saves the worker in the db and updates it
+     */
+    startWorker() {
+        return this.worker.save()
+            .then(worker => {
+                this.id = worker._id;
+                return this.isPrimary();
             })
             .then(results => {
-                if (results !== this.master) {
-                    this.master = results;
-                    this.emit('changed');
-                    if (this.master) {
-                        this.emit('master');
-                    } else {
-                        this.emit('slave');
-                        this.emit('secondary');
+                this.primary = results;
+                this.emit('connected');
+                if (this.primary) {
+                    this.emit('primary');
+                } else {
+                    this.emit('secondary');
+                }
+                this.process();
+             })
+            .catch(err => {
+                if (err.code === 11000) {
+                    this.worker.startDate = new Date();
+                    this.worker.updateDate = new Date();
+                    return this.startWorker();
+                } else {
+                    throw err;
+                }
+            });
+    }
+
+    /**
+     * Function that runs the worker that checks in whith the DB
+     */
+    process() {
+        // Update this node in the cluster every x timeout
+        this.itv = setInterval(() => {
+            this.model.updateOne({
+                _id: this.id
+            }, {
+                hostname: this.hostname,
+                pid: this.pid,
+                versions: this.versions,
+                memory: process.memoryUsage(),
+                uptime: process.uptime(),
+                updateDate: new Date()
+            }, {
+                upsert: true, // handle event where document was deleted
+                setDefaultsOnInsert: true, // on insert, make sure to set default values
+            })
+                .then(() => {
+                    this.emit('synced');
+                    return this.isPrimary();
+                })
+                .then(results => {
+                    if (results !== this.primary) {
+                        this.primary = results;
+                        this.emit('changed');
+                        if (this.primary) {
+                            this.emit('primary');
+                        } else {
+                            this.emit('secondary');
+                        }
                     }
+                })
+                .catch(err => {
+                    console.error(err);
+                });
+        }, this.timeout * 1000);
+    }
+
+    /**
+     * Function resolves with true/false if the node proc is the primary (the oldest node in the cluster)
+     */
+    isPrimary() {
+        if (this.id) {
+            return this.model.findOne({}, {
+                id: 1
+            }, {
+                sort: {
+                    startDate: 1
                 }
             })
-            .catch(err => {
-                console.error(err);
-            });
-    }, this.timeout * 1000);
-};
-
-/**
- * Function resolves with true/false if the node proc is the master (the oldest node in the cluster)
- */
-im.prototype.isMaster = function() {
-    if (this.id) {
-        return this.imModel.findOne({}, {
-            id: 1
-        }, {
-            sort: {
-                startDate: 1
-            }
-        })
-            .then(results => {
-                if (!results) return false;
-                return results._id.toString() === this.id.toString();
-            });
-    } else {
-        return false;
+                .then(results => {
+                    if (!results) return false;
+                    return results._id.toString() === this.id.toString();
+                });
+        } else {
+            return false;
+        }
     }
-};
+}
 
 /**
- * Expose im
+ * Expose node
  */
-module.exports = new im();
+module.exports = new Node();
