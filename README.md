@@ -14,54 +14,52 @@ Use cases for this module:
 
 ## Usage / Examples
 ```
-'use strict';
-
 var mongoose = require('mongoose');
 var node = require('is-primary');
 
 // Start the mongoose db connection
-mongoose.connect('mongodb://127.0.0.1:27017/test', function(err) {
-    if (err) {
-        console.error('\x1b[31m', 'Could not connect to MongoDB!');
-        throw (err);
-    }
-});
+mongoose.connect('mongodb://127.0.0.1:27017/test')
+  .catch(err => {
+    console.error('\x1b[31m', 'Could not connect to MongoDB!');
+    throw (err);
+  });
 
 // Start the is-primary worker
 node.start();
 
 // Check if this current process is the primary using the callback method
 setInterval(function() {
-    node.isPrimary().then(results => {
-        console.log('Callback primary: ', results);
-    });
+  node.isPrimary().then(results => {
+    console.log('Promise Primary:', results);
+  });
 }, 5000);
 
-// Check if this current process is the primary using the node.isPrimary method, this method only updates every time the process checks in
+// Check if this current process is the primary using the variable method
 setInterval(function() {
-        console.log('Variable primary: ', node.primary);
+    console.log('Variable primary:', node.primary);
 }, 5000);
 
-// Event emmiters that you can listen for
+// Event Emitters that you can listen for
 node.on('connected', function() {
-    console.log('The is-primary worker has connected and insterted into mongodb.');
+  console.log('The is-primary worker has connected and insterted into mongodb.');
 });
 
 node.on('synced', function() {
-    console.log('The is-primary worker has synced to mongodb.');
+  console.log('The is-primary worker has synced to mongodb.');
 });
 
 node.on('changed', function() {
-    console.log('The primary variable has changed');
+  console.log('The primary value has changed');
 });
 
 node.on('primary', function() {
-    console.log('The process has been promoted to primary');
+  console.log('The process has been promoted to primary');
 });
 
 node.on('secondary', function(){
-    console.log('The process has been demoted to secondary');
+  console.log('The process has been demoted to secondary');
 });
+
 ```
 
 ## Options
@@ -69,9 +67,9 @@ node.on('secondary', function(){
 When starting the worker, you can specify options in an object to update the default values.
 
     node.start({
-        timeout: 120, // How often the nodes check into the database. This value is in seconds, default 60.
-        hostname: 'devServer1', // Sets the hostname of the node, without this value it will get the hostname using os.hostname.
-        collection: 'proc' // The mongodb collection is-primary will use. Please note that by default mongoose adds an 's' to the end to make it plural. Default value is 'node'.
+      timeout: 120, // How often the nodes check into the database. This value is in seconds, default 60.
+      hostname: 'devServer1', // Sets the hostname of the node, without this value it will get the hostname using os.hostname.
+      collection: 'proc' // The mongodb collection is-primary will use. Please note that by default mongoose adds an 's' to the end to make it plural. Default value is 'node'.
     });
 
 ## FAQ
