@@ -23,14 +23,11 @@ class Node extends EventEmitter {
    * Function initializes options, does some basic option verification and starts is-primary
    */
   start(options) {
-    if (options) {
-      if (options.timeout) {
-        options.timeout = parseInt(options.timeout, 10);
-        if (isNaN(options.timeout)) throw new Error('timeout is not a number!');
-      }
-
-      Object.assign(this, options);
+    if (options?.timeout) {
+      options.timeout = parseInt(options.timeout, 10);
+      if (isNaN(options.timeout)) throw new Error('timeout is not a number!');
     }
+    Object.assign(this, options);
     this.mongooseInit();
     return this.startWorker();
   }
