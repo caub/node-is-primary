@@ -5,7 +5,7 @@ Find the primary node process in a multi server cluster.
 This module finds the primary node in a cluster by inserting the nodes in a mongodb and choosing the primary by which node is the oldest. Each node checks into mongodb on a set timeout (default 1 minute). If the primary node dies for whatever reason, mongodb will expire the record and the next node in line will become the primary. Mongoose and a connection to a mongodb database is REQUIRED for is-primary to work.
 
 Use cases for this module:
-* If you run your node cluster with a cluster manager like PM2 or even if you run your clusters on multiple servers (they just need to all report into the same mongodb), you can find which node process is the primary.
+* If you run your node app with a cluster manager like PM2 or Heroku dynos or even if you run your clusters on multiple servers (they just need to all report into the same mongodb), you can find which node process is the primary.
 * This will allow you to assign one node process as the primary so that it can run tasks that should only be ran by one process, such as scheduled tasks and database cleanup.
 
 ## Installation
