@@ -7,7 +7,6 @@ var node = require('is-primary');
 mongoose.connect('mongodb://127.0.0.1:27017/test')
   .catch(err => {
     console.error('\x1b[31m', 'Could not connect to MongoDB!');
-    throw (err);
   });
 
 // Start the is-primary worker
